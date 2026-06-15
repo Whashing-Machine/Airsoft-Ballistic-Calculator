@@ -6,7 +6,7 @@
 #include <math.h>
 #include <ReefwingMPU6x00.h>
 #include <Reefwing_imutypes.h>
-#include <JC02-1Rangefinder.h>
+//#include <JC02-1Rangefinder.h>
 #include <ReefwingAHRS.h>
 #include <sym-lib.h>
 #define SCREEN_WIDTH 128
@@ -28,8 +28,9 @@ static const uint8_t LED0_PIN = A4;
 static const uint8_t LED1_PIN = A5;
 static MPU6500 imu = MPU6500(SPI, CS_PIN);
 static Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
-SoftwareSerial rfSerial(10,11); 
-Rangefinder rf(rfSerial);
+//SoftwareSerial rfSerial(10,11); 
+//Rangefinder rf(rfSerial);
+ReefwingAHRS ahrs; 
 
 void startupcal() {
   imu.calibrateAccelGyro();
@@ -50,6 +51,7 @@ void startupcal() {
   }
   display.display();
   delay(3000);
+}
 void setup() {
   Serial.begin(115200);
 
@@ -62,6 +64,10 @@ void setup() {
   pinMode(LED0_PIN, OUTPUT);
   pinMode(LED1_PIN, OUTPUT);
   imu.begin();
+  ahrs.setDOF(DOF::DOF_6);
+  ahrs.setImuType(ImuType::MPU6500);
+  ahrs.setFusionAlgorithm(SensorFusion::CLASSIC);
+  //ahrs.setDeclination(12.717);      
   display.clearDisplay();
   display.drawBitmap(0, 0, svp_sonne_bitmap, SCREEN_WIDTH, SCREEN_HEIGHT, WHITE);
   display.display();
@@ -76,10 +82,11 @@ void rollpitchupdate() {
   if (imu.dataAvailable()) {
     imu.readSensor();
     SensorData data = imu.getSensorData();
-    ahrs.update(data);
+    ahrs.setData(data);
+    ahrs.update();
   }
 
-  EulerAngles angles = ahrs.getAngles();
+  EulerAngles angles = ahrs.angles;
   float angleRad = angles.roll * DEG_TO_RAD;
 
   const int rx = SCREEN_WIDTH / 2;
@@ -103,17 +110,17 @@ void rangedisplay() {
 }
 
 void distancecomp(float range, float result_z) {
-  float compensation = (0.24455 * result_z)/(0.00171875 * float range));
+  float compensation = (0.24455 * result_z)/(0.00171875 * float(range));
 
   int compX = (int)((dotX + x0) /2);
   int compY = (int)((dotY + y0) /2) - (int)compensation;
 
   display.drawCircle(compX, compY, 6, WHITE);
- }
+}
 void loop() {
   display.clearDisplay();
   drawreflines();
   rollpitchupdate();
   rangedisplay();
   distancecomp(52, 21.2);
-  }
+}
